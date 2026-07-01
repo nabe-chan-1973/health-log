@@ -1,0 +1,153 @@
+:root {
+  --bg: #f4f6f5;
+  --surface: #ffffff;
+  --ink: #2f3a3d;
+  --ink-soft: #6b7a7e;
+  --line: #dfe5e3;
+  --accent: #4a6670;
+  --accent-soft: #e3eaeb;
+  --sys: #b6776b;   /* 落ち着いた赤茶 */
+  --dia: #6f93a3;   /* くすんだ青 */
+  --pulse: #9aa66b; /* オリーブ */
+  --weight: #8a7c9b;/* 藤色 */
+  --danger: #a85b50;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-text-size-adjust: 100%;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+header {
+  background: var(--accent);
+  color: #eef2f1;
+  padding: 14px 16px;
+  padding-top: calc(14px + env(safe-area-inset-top));
+}
+header h1 { margin: 0; font-size: 1.1rem; font-weight: 600; letter-spacing: .02em; }
+
+.tabs {
+  display: flex;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.tab-btn {
+  flex: 1;
+  padding: 12px 0;
+  border: none;
+  background: none;
+  font-size: .95rem;
+  color: var(--ink-soft);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+main { padding: 16px; max-width: 720px; margin: 0 auto; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* フォーム */
+form label, fieldset label {
+  display: block;
+  font-size: .85rem;
+  color: var(--ink-soft);
+  margin-bottom: 12px;
+}
+input, textarea {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 10px;
+  font-size: 1rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+input:focus, textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+fieldset {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  margin: 0 0 12px;
+}
+legend { font-size: .8rem; color: var(--ink-soft); padding: 0 6px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.grid3 label { margin-bottom: 0; }
+
+/* ボタン */
+.btn {
+  display: inline-block;
+  padding: 11px 16px;
+  font-size: .95rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.btn-primary {
+  width: 100%;
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  font-weight: 600;
+  margin-top: 4px;
+}
+.btn-bt { background: var(--accent-soft); border-color: var(--accent-soft); color: var(--accent); }
+
+.bt-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.bt-status { font-size: .8rem; color: var(--ink-soft); }
+.save-msg { color: var(--accent); font-size: .85rem; min-height: 1.2em; margin: 8px 0 0; }
+
+/* グラフ */
+.range-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.range-btn {
+  flex: 1;
+  padding: 8px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.range-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.chart-box {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 14px;
+}
+
+/* 一覧 */
+.list-actions { margin-bottom: 12px; }
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+table { width: 100%; border-collapse: collapse; font-size: .85rem; white-space: nowrap; }
+th, td { padding: 9px 10px; text-align: right; border-bottom: 1px solid var(--line); }
+th:first-child, td:first-child { text-align: left; }
+th:last-child, td:last-child { text-align: center; }
+thead th { background: var(--accent-soft); color: var(--accent); font-weight: 600; position: sticky; top: 0; }
+tbody tr:last-child td { border-bottom: none; }
+td .del {
+  border: none; background: none; color: var(--danger);
+  cursor: pointer; font-size: 1rem; padding: 0 4px;
+}
+.empty { text-align: center; color: var(--ink-soft); padding: 24px; }

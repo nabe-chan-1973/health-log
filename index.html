@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#4a6670">
+  <title>血圧・体重トラッカー</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>血圧・体重トラッカー</h1>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="input">入力</button>
+    <button class="tab-btn" data-tab="chart">グラフ</button>
+    <button class="tab-btn" data-tab="list">一覧</button>
+  </nav>
+
+  <main>
+    <!-- 入力タブ -->
+    <section id="tab-input" class="tab-panel active">
+      <div class="bt-row">
+        <button id="bt-btn" class="btn btn-bt">📶 血圧計から取り込む</button>
+        <span id="bt-status" class="bt-status"></span>
+      </div>
+
+      <form id="entry-form">
+        <label>日付
+          <input type="date" id="f-date" required>
+        </label>
+
+        <fieldset>
+          <legend>朝の血圧・脈拍</legend>
+          <div class="grid3">
+            <label>最高 (mmHg)
+              <input type="number" id="f-sys" inputmode="numeric" min="0" max="300" placeholder="120">
+            </label>
+            <label>最低 (mmHg)
+              <input type="number" id="f-dia" inputmode="numeric" min="0" max="200" placeholder="80">
+            </label>
+            <label>脈拍 (bpm)
+              <input type="number" id="f-pulse" inputmode="numeric" min="0" max="250" placeholder="60">
+            </label>
+          </div>
+        </fieldset>
+
+        <label>夜の体重 (kg)
+          <input type="number" id="f-weight" inputmode="decimal" step="0.1" min="0" max="400" placeholder="60.0">
+        </label>
+
+        <label>メモ
+          <textarea id="f-memo" rows="2" placeholder="体調・服薬など"></textarea>
+        </label>
+
+        <button type="submit" class="btn btn-primary">保存</button>
+        <p id="save-msg" class="save-msg"></p>
+      </form>
+    </section>
+
+    <!-- グラフタブ -->
+    <section id="tab-chart" class="tab-panel">
+      <div class="range-row">
+        <button class="range-btn active" data-range="7">1週</button>
+        <button class="range-btn" data-range="30">1ヶ月</button>
+        <button class="range-btn" data-range="90">3ヶ月</button>
+      </div>
+      <div class="chart-box">
+        <canvas id="bp-chart"></canvas>
+      </div>
+      <div class="chart-box">
+        <canvas id="weight-chart"></canvas>
+      </div>
+    </section>
+
+    <!-- 一覧タブ -->
+    <section id="tab-list" class="tab-panel">
+      <div class="list-actions">
+        <button id="csv-btn" class="btn">CSVエクスポート</button>
+      </div>
+      <div class="table-wrap">
+        <table id="list-table">
+          <thead>
+            <tr>
+              <th>日付</th><th>最高</th><th>最低</th><th>脈拍</th><th>体重</th><th>メモ</th><th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="vendor/chart.umd.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
