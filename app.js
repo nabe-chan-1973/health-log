@@ -115,6 +115,7 @@ form.addEventListener('submit', async (e) => {
     diastolic: numOrNull($('f-dia').value) ?? existing.diastolic ?? null,
     pulse: numOrNull($('f-pulse').value) ?? existing.pulse ?? null,
     weight: numOrNull($('f-weight').value) ?? existing.weight ?? null,
+    bodyFat: numOrNull($('f-fat').value) ?? existing.bodyFat ?? null,
     memo: memo || existing.memo || '',
   };
   await putEntry(entry);
@@ -122,7 +123,7 @@ form.addEventListener('submit', async (e) => {
   msg.textContent = '保存しました ✓';
   setTimeout(() => (msg.textContent = ''), 2000);
   // 入力欄は日付以外クリア
-  ['f-sys', 'f-dia', 'f-pulse', 'f-weight', 'f-memo'].forEach((id) => ($(id).value = ''));
+  ['f-sys', 'f-dia', 'f-pulse', 'f-weight', 'f-fat', 'f-memo'].forEach((id) => ($(id).value = ''));
 });
 
 /* ============================================================
@@ -272,6 +273,7 @@ btBtn.addEventListener('click', async () => {
           diastolic: m.diastolic ?? existing.diastolic ?? null,
           pulse: m.pulse ?? existing.pulse ?? null,
           weight: existing.weight ?? null,
+          bodyFat: existing.bodyFat ?? null,
           memo: existing.memo || '',
         });
         saved++;
@@ -361,6 +363,7 @@ async function renderCharts() {
   const cDia = css.getPropertyValue('--dia').trim();
   const cPulse = css.getPropertyValue('--pulse').trim();
   const cWeight = css.getPropertyValue('--weight').trim();
+  const cFat = css.getPropertyValue('--fat').trim();
 
   // --- 血圧・脈拍 ---
   const n = labels.length;
@@ -379,15 +382,24 @@ async function renderCharts() {
   if (bpChart) { bpChart.data = bpData; bpChart.options = bpOpts; bpChart.update(); }
   else bpChart = new Chart($('bp-chart'), { type: 'line', data: bpData, options: bpOpts });
 
-  // --- 体重 ---
+  // --- 体重・体脂肪率（体脂肪率は右軸） ---
   const wData = {
     labels,
     datasets: [
-      { label: '体重', data: data.map((e) => e.weight), borderColor: cWeight, backgroundColor: cWeight, tension: 0.25, spanGaps: true },
+      { label: '体重', data: data.map((e) => e.weight), borderColor: cWeight, backgroundColor: cWeight, tension: 0.25, spanGaps: true, yAxisID: 'y' },
+      { label: '体脂肪率', data: data.map((e) => e.bodyFat), borderColor: cFat, backgroundColor: cFat, tension: 0.25, spanGaps: true, yAxisID: 'y1' },
     ],
   };
   const wOpts = baseOptions('kg');
   wOpts.scales.y.beginAtZero = false;
+  // 右軸: 体脂肪率(%)。目盛りが混ざらないようグリッド線は左軸のみ表示。
+  wOpts.scales.y1 = {
+    position: 'right',
+    beginAtZero: false,
+    title: { display: true, text: '%', color: CHART_FONT },
+    ticks: { color: CHART_FONT },
+    grid: { drawOnChartArea: false },
+  };
   if (weightChart) { weightChart.data = wData; weightChart.options = wOpts; weightChart.update(); }
   else weightChart = new Chart($('weight-chart'), { type: 'line', data: wData, options: wOpts });
 }
@@ -400,7 +412,7 @@ async function renderList() {
   const tbody = document.querySelector('#list-table tbody');
   tbody.innerHTML = '';
   if (all.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">記録がありません</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">記録がありません</td></tr>';
     return;
   }
   // 新しい日付を上に
@@ -412,6 +424,7 @@ async function renderList() {
       `<td>${e.diastolic ?? ''}</td>` +
       `<td>${e.pulse ?? ''}</td>` +
       `<td>${e.weight ?? ''}</td>` +
+      `<td>${e.bodyFat ?? ''}</td>` +
       `<td style="text-align:left">${escapeHtml(e.memo || '')}</td>` +
       `<td><button class="del" title="削除" data-date="${e.date}">✕</button></td>`;
     tbody.appendChild(tr);
@@ -438,8 +451,8 @@ function csvCell(v) {
 
 document.getElementById('csv-btn').addEventListener('click', async () => {
   const all = await getAllEntries();
-  const header = ['日付', '最高', '最低', '脈拍', '体重', 'メモ'];
-  const rows = all.map((e) => [e.date, e.systolic, e.diastolic, e.pulse, e.weight, e.memo].map(csvCell).join(','));
+  const header = ['日付', '最高', '最低', '脈拍', '体重', '体脂肪率', 'メモ'];
+  const rows = all.map((e) => [e.date, e.systolic, e.diastolic, e.pulse, e.weight, e.bodyFat, e.memo].map(csvCell).join(','));
   const csv = '﻿' + header.join(',') + '\n' + rows.join('\n'); // BOM付きでExcel文字化け回避
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);

@@ -49,9 +49,17 @@
           </div>
         </fieldset>
 
-        <label>夜の体重 (kg)
-          <input type="number" id="f-weight" inputmode="decimal" step="0.1" min="0" max="400" placeholder="60.0">
-        </label>
+        <fieldset>
+          <legend>夜の計測</legend>
+          <div class="grid2">
+            <label>体重 (kg)
+              <input type="number" id="f-weight" inputmode="decimal" step="0.1" min="0" max="400" placeholder="60.0">
+            </label>
+            <label>体脂肪率 (%)
+              <input type="number" id="f-fat" inputmode="decimal" step="0.1" min="0" max="80" placeholder="20.0">
+            </label>
+          </div>
+        </fieldset>
 
         <label>メモ
           <textarea id="f-memo" rows="2" placeholder="体調・服薬など"></textarea>
@@ -86,7 +94,7 @@
         <table id="list-table">
           <thead>
             <tr>
-              <th>日付</th><th>最高</th><th>最低</th><th>脈拍</th><th>体重</th><th>メモ</th><th></th>
+              <th>日付</th><th>最高</th><th>最低</th><th>脈拍</th><th>体重</th><th>体脂肪</th><th>メモ</th><th></th>
             </tr>
           </thead>
           <tbody></tbody>

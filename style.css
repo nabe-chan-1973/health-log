@@ -10,6 +10,7 @@
   --dia: #6f93a3;   /* くすんだ青 */
   --pulse: #9aa66b; /* オリーブ */
   --weight: #8a7c9b;/* 藤色 */
+  --fat: #c39b6b;   /* くすんだ黄土 */
   --danger: #a85b50;
 }
 
@@ -90,7 +91,8 @@ fieldset {
 }
 legend { font-size: .8rem; color: var(--ink-soft); padding: 0 6px; }
 .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-.grid3 label { margin-bottom: 0; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.grid3 label, .grid2 label { margin-bottom: 0; }
 
 /* ボタン */
 .btn {

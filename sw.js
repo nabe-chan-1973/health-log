@@ -1,5 +1,5 @@
 /* Service Worker: アプリシェルをキャッシュしてオフライン動作させる */
-const CACHE = 'health-log-v2';
+const CACHE = 'health-log-v3';
 
 // スコープ基準の相対パス (GitHub Pages のサブパスでも動くように)
 const ASSETS = [
