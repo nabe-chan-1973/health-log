@@ -103,6 +103,19 @@
     </section>
   </main>
 
+  <!-- 取り込み選択ダイアログ -->
+  <div id="bt-modal" class="modal" hidden>
+    <div class="modal-card">
+      <h2>取り込むデータを選択</h2>
+      <p class="modal-hint">保存する記録にチェックしてください。⚠️ は既存の記録を上書きします。同じ日は1件だけ選べます。</p>
+      <div id="bt-modal-list" class="modal-list"></div>
+      <div class="modal-actions">
+        <button id="bt-modal-cancel" class="btn">キャンセル</button>
+        <button id="bt-modal-save" class="btn btn-primary">選択した記録を保存</button>
+      </div>
+    </div>
+  </div>
+
   <script src="vendor/chart.umd.min.js"></script>
   <script src="app.js"></script>
 </body>

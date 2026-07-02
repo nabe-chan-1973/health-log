@@ -158,20 +158,24 @@ function parseSFLOAT(value, offset) {
      bit0 単位 (0=mmHg, 1=kPa)
      bit1 時刻あり
      bit2 脈拍あり
-   以降: SFLOAT×3 (収縮期/拡張期/平均), [時刻7byte], [脈拍 SFLOAT] */
+     bit3 ユーザーIDあり
+     bit4 測定ステータスあり
+   以降: SFLOAT×3 (収縮期/拡張期/平均), [時刻7byte], [脈拍 SFLOAT], [ユーザーID 1byte], [ステータス 2byte] */
 function parseBPMeasurement(value) {
   const flags = value.getUint8(0);
   const kPa = flags & 0x01;
   const hasTimestamp = flags & 0x02;
   const hasPulse = flags & 0x04;
+  const hasUser = flags & 0x08;
+  const p2 = (n) => String(n).padStart(2, '0');
 
   let i = 1;
   const systolic = parseSFLOAT(value, i); i += 2;
   const diastolic = parseSFLOAT(value, i); i += 2;
   i += 2; // 平均血圧 (MAP) は使わないので読み飛ばし
 
-  // 測定時刻 (機器が保存しているデータ日付)。複数レコードから最新を選ぶのに使う。
-  let ts = null, dateStr = null;
+  // 測定時刻 (機器が保存しているデータ日付・時刻)。
+  let ts = null, dateStr = null, timeStr = null;
   if (hasTimestamp) {
     const year = value.getUint16(i, true);
     const month = value.getUint8(i + 2);
@@ -181,14 +185,18 @@ function parseBPMeasurement(value) {
     const sec = value.getUint8(i + 6);
     if (year > 0) {
       ts = new Date(year, month - 1, day, hour, min, sec).getTime();
-      const p2 = (n) => String(n).padStart(2, '0');
       dateStr = `${year}-${p2(month)}-${p2(day)}`;
+      timeStr = `${p2(hour)}:${p2(min)}`;
     }
     i += 7;
   }
 
   let pulse = null;
   if (hasPulse) { pulse = parseSFLOAT(value, i); i += 2; }
+
+  // ユーザーID (本体の USER 1/2 切替)。他人の測定を見分けるのに使う。
+  let userId = null;
+  if (hasUser && i < value.byteLength) { userId = value.getUint8(i); i += 1; }
 
   const conv = (v) => (v == null ? null : kPa ? v * 7.50062 : v); // kPa→mmHg
   return {
@@ -197,6 +205,8 @@ function parseBPMeasurement(value) {
     pulse: pulse == null ? null : Math.round(pulse),
     ts,       // 比較用のミリ秒 (時刻が無ければ null)
     dateStr,  // YYYY-MM-DD (時刻が無ければ null)
+    timeStr,  // HH:MM (時刻が無ければ null)
+    userId,   // 1 / 2 など (無ければ null)
   };
 }
 
@@ -227,63 +237,39 @@ btBtn.addEventListener('click', async () => {
     const ch = await service.getCharacteristic(0x2a35);
 
     // UA-651BLE 等は接続直後に保存済みの測定データを Indicate で一気に送ってくる。
-    // 受信した全レコードを日付ごとにまとめ（同一日は時刻が新しい方を採用）、
-    // 取り込み完了時にまとめて一覧へ保存する。
-    const byDate = new Map(); // dateStr -> { systolic, diastolic, pulse, ts, dateStr }
-    let best = null;          // 画面表示用の最新レコード
+    // 受信した各測定を「そのまま全部」ためておき、取り込み完了後に
+    // ユーザーがどれを保存するか選ぶ（自動保存はしない → 朝の記録の意図しない上書きを防ぐ）。
+    const readings = [];        // { systolic, diastolic, pulse, date, timeStr, userId, ts }
+    const seen = new Set();     // 同一フレームの重複除外
     let received = 0;
 
     // ★ 重要: 通知の取りこぼしを防ぐため、リスナーは startNotifications より前に付ける。
     ch.addEventListener('characteristicvaluechanged', (ev) => {
-      const dv = ev.target.value;
-      const m = parseBPMeasurement(dv);
+      const m = parseBPMeasurement(ev.target.value);
       received++;
       if (m.systolic == null) return; // 血圧が読めないフレームは無視
 
-      // 日付単位で集約（時刻が無いものは今日扱い）。同一日は新しい時刻を優先。
-      const key = m.dateStr || todayStr();
-      const prev = byDate.get(key);
-      if (!prev || (m.ts != null && (prev.ts == null || m.ts >= prev.ts))) byDate.set(key, m);
-
-      // 全体で最も新しいものを画面プレビューに反映
-      if (!best || (m.ts != null && (best.ts == null || m.ts >= best.ts))) best = m;
-      if (best.systolic != null) $('f-sys').value = best.systolic;
-      if (best.diastolic != null) $('f-dia').value = best.diastolic;
-      if (best.pulse != null) $('f-pulse').value = best.pulse;
-      if (best.dateStr) $('f-date').value = best.dateStr;
-      setBtStatus(`受信中… ${best.systolic}/${best.diastolic} mmHg（${received}件）`);
+      const date = m.dateStr || todayStr();
+      const key = `${m.ts ?? received}|${m.systolic}|${m.diastolic}|${m.userId ?? ''}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      readings.push({ systolic: m.systolic, diastolic: m.diastolic, pulse: m.pulse, date, timeStr: m.timeStr, userId: m.userId, ts: m.ts });
+      setBtStatus(`受信中… ${readings.length}件`);
     });
 
-    // 送信が途切れた or 機器が切断したら、受信分をまとめて一覧へ保存する。
+    // 送信が途切れた or 機器が切断したら、受信分を選択ダイアログに出す。
     let finished = false;
     const finish = async () => {
       if (finished) return; // 二重実行防止
       finished = true;
-      if (byDate.size === 0) {
+      if (readings.length === 0) {
         setBtStatus('接続はできましたがデータが届きませんでした。血圧計で新しく測定してから、数秒以内に再度お試しください。');
         return;
       }
-      // 既存の体重・メモは残しつつ、血圧/脈拍だけ上書き（マージ保存）
-      let saved = 0;
-      for (const [date, m] of byDate) {
-        const existing = (await getEntry(date)) || { date };
-        await putEntry({
-          date,
-          systolic: m.systolic ?? existing.systolic ?? null,
-          diastolic: m.diastolic ?? existing.diastolic ?? null,
-          pulse: m.pulse ?? existing.pulse ?? null,
-          weight: existing.weight ?? null,
-          bodyFat: existing.bodyFat ?? null,
-          memo: existing.memo || '',
-        });
-        saved++;
-      }
-      // 入力欄はクリア（保存済みなので手動保存は不要）
-      ['f-sys', 'f-dia', 'f-pulse'].forEach((id) => ($(id).value = ''));
-      $('f-date').value = todayStr();
-      setBtStatus(`${saved}件を一覧に保存しました ✓（「一覧」タブで確認）`);
-      renderList();
-      if (document.getElementById('tab-chart').classList.contains('active')) renderCharts();
+      // 新しい順に並べて選択ダイアログへ
+      readings.sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0));
+      setBtStatus(`${readings.length}件を受信。保存する記録を選んでください。`);
+      await showImportDialog(readings);
     };
     device.addEventListener('gattserverdisconnected', finish, { once: true });
 
@@ -310,6 +296,97 @@ btBtn.addEventListener('click', async () => {
     }
   }
 });
+
+/* ============================================================
+   取り込み選択ダイアログ
+   受信した測定を一覧表示し、チェックしたものだけを保存する。
+   1日1レコードのため、同一日は1件だけ選択可（他はチェックが外れる）。
+   ============================================================ */
+
+// デバイスの測定値を、その日の既存レコードにマージ保存（体重・体脂肪・メモは残す）。
+async function saveDeviceReading(r) {
+  const existing = (await getEntry(r.date)) || { date: r.date };
+  await putEntry({
+    date: r.date,
+    systolic: r.systolic ?? existing.systolic ?? null,
+    diastolic: r.diastolic ?? existing.diastolic ?? null,
+    pulse: r.pulse ?? existing.pulse ?? null,
+    weight: existing.weight ?? null,
+    bodyFat: existing.bodyFat ?? null,
+    memo: existing.memo || '',
+  });
+}
+
+function showImportDialog(readings) {
+  return new Promise(async (resolve) => {
+    const modal = $('bt-modal');
+    const list = $('bt-modal-list');
+    const saveBtn = $('bt-modal-save');
+    const cancelBtn = $('bt-modal-cancel');
+
+    // 既存レコード（血圧が入っている日 = 上書き対象）を把握
+    const all = await getAllEntries();
+    const existingBP = new Map(); // date -> true(既に血圧あり)
+    all.forEach((e) => { if (e.systolic != null) existingBP.set(e.date, true); });
+
+    // 各日付で最も新しい受信（readings は新しい順）を既定チェック対象にする
+    const newestSeen = new Set();
+    list.innerHTML = '';
+    readings.forEach((r, idx) => {
+      const isNewestOfDate = !newestSeen.has(r.date);
+      if (isNewestOfDate) newestSeen.add(r.date);
+      const willOverwrite = existingBP.has(r.date);
+      // 既定: 上書きにならない「新しい日の最新測定」だけチェック
+      const checked = isNewestOfDate && !willOverwrite;
+
+      const row = document.createElement('label');
+      row.className = 'imp-row';
+      const user = r.userId != null ? `<span class="imp-user">USER ${r.userId}</span>` : '';
+      const warn = willOverwrite ? `<span class="imp-warn">⚠️ 既存の記録を上書き</span>` : '';
+      const time = r.timeStr ? ` ${r.timeStr}` : '';
+      row.innerHTML =
+        `<input type="checkbox" data-idx="${idx}" data-date="${r.date}" ${checked ? 'checked' : ''}>` +
+        `<span class="imp-main"><b>${r.date}${time}</b> ${user}<br>` +
+        `${r.systolic}/${r.diastolic} mmHg` + (r.pulse != null ? ` ・ ${r.pulse} bpm` : '') +
+        ` ${warn}</span>`;
+      list.appendChild(row);
+    });
+
+    // 同一日は1件だけ（チェックしたら同じ日の他を外す）
+    list.querySelectorAll('input[type=checkbox]').forEach((cb) => {
+      cb.addEventListener('change', () => {
+        if (!cb.checked) return;
+        list.querySelectorAll(`input[data-date="${cb.dataset.date}"]`).forEach((o) => {
+          if (o !== cb) o.checked = false;
+        });
+      });
+    });
+
+    const close = () => {
+      modal.hidden = true;
+      saveBtn.onclick = null;
+      cancelBtn.onclick = null;
+    };
+
+    cancelBtn.onclick = () => {
+      close();
+      setBtStatus('取り込みをキャンセルしました。');
+      resolve();
+    };
+
+    saveBtn.onclick = async () => {
+      const chosen = Array.from(list.querySelectorAll('input:checked')).map((cb) => readings[Number(cb.dataset.idx)]);
+      for (const r of chosen) await saveDeviceReading(r);
+      close();
+      setBtStatus(chosen.length ? `${chosen.length}件を保存しました ✓（「一覧」タブで確認）` : '保存しませんでした。');
+      renderList();
+      if (document.getElementById('tab-chart').classList.contains('active')) renderCharts();
+      resolve();
+    };
+
+    modal.hidden = false;
+  });
+}
 
 /* ============================================================
    グラフ (Chart.js)
